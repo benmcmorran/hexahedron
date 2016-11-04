@@ -19,6 +19,7 @@ import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 import org.opencv.core.Point;
 import org.opencv.core.Scalar;
+import org.opencv.imgproc.Imgproc;
 
 import java.io.IOException;
 import java.util.List;
@@ -28,6 +29,7 @@ public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback
     private Context mContext;
     private SurfaceHolder mHolder;
     private Camera mCamera;
+    private int previewWidth, previewHeight;
 
     public CameraPreview(Context context, AttributeSet attributes) {
         super(context, attributes);
@@ -64,8 +66,8 @@ public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback
             mCamera.setDisplayOrientation(0);
         }
 
-        int previewWidth = width;
-        int previewHeight = height;
+        previewWidth = width;
+        previewHeight = height;
         if (portrait) {
             previewWidth = height;
             previewHeight = width;
@@ -121,11 +123,19 @@ public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback
 
     @Override
     public void onPreviewFrame(byte[] bytes, Camera camera) {
-        Mat m = Mat.zeros(100,400, CvType.CV_8UC3);
+        Mat raw = new Mat(previewHeight + previewHeight / 2, previewWidth, CvType.CV_8UC1);
+        raw.put(0, 0, bytes);
+
+        Mat rgba = new Mat();
+        Imgproc.cvtColor(raw, rgba, Imgproc.COLOR_YUV2RGBA_NV21, 4);
+        rgba = rgba.t();
+        Core.flip(rgba, rgba, 1);
+        Imgproc.cvtColor(rgba, rgba, Imgproc.COLOR_RGBA2GRAY);
+        Imgproc.Canny(rgba, rgba, 100, 200);
 
         // convert to bitmap:
-        Bitmap bm = Bitmap.createBitmap(m.cols(), m.rows(),Bitmap.Config.ARGB_8888);
-        Utils.matToBitmap(m, bm);
+        Bitmap bm = Bitmap.createBitmap(rgba.cols(), rgba.rows(), Bitmap.Config.ARGB_8888);
+        Utils.matToBitmap(rgba, bm);
 
         // find the imageview and draw it!
         ImageView iv = (ImageView) ((Activity)mContext).findViewById(R.id.overlay);
