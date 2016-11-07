@@ -12,6 +12,7 @@ import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 
 public class MainActivity extends Activity implements CameraBridgeViewBase.CvCameraViewListener2 {
+    private HexahedronCameraView mPreview;
 
     // Used to load the 'native-lib' library on application startup.
     static {
@@ -27,9 +28,9 @@ public class MainActivity extends Activity implements CameraBridgeViewBase.CvCam
         setContentView(R.layout.activity_main);
 
         // Example of a call to a native method
-        JavaCameraView preview = (JavaCameraView) findViewById(R.id.preview);
-        preview.enableView();
-        preview.setCvCameraViewListener(this);
+        mPreview = (HexahedronCameraView) findViewById(R.id.preview);
+        mPreview.enableView();
+        mPreview.setCvCameraViewListener(this);
     }
 
     /**
@@ -42,12 +43,12 @@ public class MainActivity extends Activity implements CameraBridgeViewBase.CvCam
 
     @Override
     public void onCameraViewStarted(int width, int height) {
-
+        mPreview.enableFlash();
     }
 
     @Override
     public void onCameraViewStopped() {
-
+        mPreview.disableFlash();
     }
 
     @Override

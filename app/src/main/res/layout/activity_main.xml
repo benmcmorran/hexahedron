@@ -6,7 +6,7 @@
     android:layout_height="match_parent"
     tools:context="edu.wpi.hexahedron.MainActivity">
 
-    <org.opencv.android.JavaCameraView
+    <edu.wpi.hexahedron.HexahedronCameraView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:id="@+id/preview"

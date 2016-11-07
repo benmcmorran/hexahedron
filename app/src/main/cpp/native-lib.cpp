@@ -86,6 +86,63 @@ Point findCenter(vector<Point> hexagon, bool &areCornersOdd) {
     return center / 3;
 }
 
+class DistanceTest {
+public:
+    DistanceTest(float threshold) {
+        this->threshold = threshold;
+    }
+
+    bool operator()(const Point &p1, const Point &p2) {
+        return norm(p2 - p1) < threshold;
+    }
+
+private:
+    float threshold;
+};
+
+vector<Point> findCentralPoints(vector<Vec4i> lines, Point center, int threshold, Mat preview) {
+    vector<Point> endpoints;
+    for (Vec4i l : lines) {
+        endpoints.push_back(Point(l[0], l[1]));
+        endpoints.push_back(Point(l[2], l[3]));
+    }
+
+    vector<int> labels;
+    partition(endpoints, labels, DistanceTest(threshold));
+
+    int maxCols = 6;
+    Scalar cols[] = {
+            Scalar(255, 0, 0),
+            Scalar(255, 255, 0),
+            Scalar(0, 255, 0),
+            Scalar(0, 255, 255),
+            Scalar(0, 0, 255),
+            Scalar(255, 0, 255)
+    };
+    for (int i = 0; i < endpoints.size(); i++) {
+        circle(preview, endpoints[i], 5, cols[labels[i] % maxCols], -1, 8, 0);
+    }
+
+    int labelCount = *max_element(labels.begin(), labels.end()) + 1;
+    vector<pair<int, Point>> averages(labelCount);
+    for (int i = 0; i < endpoints.size(); i++) {
+        averages[labels[i]].first++;
+        averages[labels[i]].second += endpoints[i];
+    }
+    int centralLabel = min_element(averages.begin(), averages.end(), [&](pair<int, Point> a, pair<int, Point> b) -> bool {
+        return norm(a.second / a.first - center) < norm(b.second / b.first - center);
+    }) - averages.begin();
+
+    vector<Point> result;
+    for (int i = 0; i < endpoints.size(); i++) {
+        if (labels[i] == centralLabel) {
+            result.push_back(endpoints[i]);
+        }
+    }
+
+    return result;
+}
+
 extern "C" {
 
 jstring
@@ -103,17 +160,22 @@ Java_edu_wpi_hexahedron_MainActivity_findCube(
         jlong input
 ) {
     Mat& raw = *(Mat*)input;
+    Point center(raw.cols / 2, raw.rows / 2);
 
     Mat edges;
     cvtColor(raw, edges, CV_RGBA2GRAY);
-    GaussianBlur(edges, edges, Size(), 1.2);
-    Canny(edges, edges, 50, 200);
+    GaussianBlur(edges, edges, Size(), 1);
+    Canny(edges, edges, 100, 200);
 
-    vector<Point> edgePoints, hullPoints, approx;
-    findNonZero(edges, edgePoints);
-    if (edgePoints.size() == 0) return;
-    convexHull(edgePoints, hullPoints);
-    approxPolyDP(hullPoints, approx, 10, true);
+    vector<Vec4i> lines;
+    HoughLinesP(edges, lines, 1, CV_PI / 180, 50, 30, 10);
+    if (lines.size() == 0) return;
+    vector<Point> cubePoints = findCentralPoints(lines, center, 100, raw);
+
+    vector<Point> hullPoints, approx;
+    if (cubePoints.size() == 0) return;
+    convexHull(cubePoints, hullPoints);
+    approxPolyDP(hullPoints, approx, 5, true);
     if (approx.size() < 6) return;
     vector<Point> hex = simplify(approx, 6);
 
