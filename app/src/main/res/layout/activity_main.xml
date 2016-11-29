@@ -12,4 +12,10 @@
         android:id="@+id/preview"
         opencv:show_fps="true"
         opencv:camera_id="back" />
+    <Button
+        android:layout_width="200dp"
+        android:layout_height="100dp"
+        android:layout_gravity="bottom"
+        android:text="Next"
+        android:id="@+id/next" />
 </FrameLayout>
