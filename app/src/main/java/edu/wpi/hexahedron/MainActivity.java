@@ -1,6 +1,7 @@
 package edu.wpi.hexahedron;
 
 import android.app.Activity;
+import android.content.Intent;
 import android.graphics.Bitmap;
 import android.os.Bundle;
 import android.util.Log;
@@ -18,10 +19,14 @@ import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 import org.opencv.imgproc.Imgproc;
 
+import cs.min2phase.Search;
+
 public class MainActivity extends Activity implements CameraBridgeViewBase.CvCameraViewListener2 {
     private HexahedronCameraView mPreview;
     private Mat faces1, faces2;
     int currentCapture = 1;
+    Search search = new Search();
+
 
     // Used to load the 'native-lib' library on application startup.
     static {
@@ -82,10 +87,18 @@ public class MainActivity extends Activity implements CameraBridgeViewBase.CvCam
                 findCube(frameAddr, faces2.getNativeObjAddr());
                 break;
             case 3:
-                String result = clusterColors(faces1.getNativeObjAddr(), faces2.getNativeObjAddr());
-                Log.d("hexahedron", result);
+                String config = clusterColors(faces1.getNativeObjAddr(), faces2.getNativeObjAddr());
+                String result = solveCube(config);
+                Intent intent = new Intent(this, ResultActivity.class);
+                intent.putExtra("solve", result);
+                startActivity(intent);
+                currentCapture++;
                 break;
         }
         return frame;
+    }
+
+    private String solveCube(String config) {
+        return search.solution(config, 21, 1000, 0, 0);
     }
 }
