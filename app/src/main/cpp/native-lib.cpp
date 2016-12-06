@@ -3,6 +3,7 @@
 #include <opencv2/core/core.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <vector>
+#include "munkres.h"
 
 using namespace std;
 using namespace cv;
@@ -247,14 +248,17 @@ Java_edu_wpi_hexahedron_MainActivity_clusterColors(
     Mat &faces1 = *(Mat *) faces1Addr;
     Mat &faces2 = *(Mat *) faces2Addr;
 
+    cvtColor(faces1, faces1, CV_RGBA2RGB);
+    cvtColor(faces2, faces2, CV_RGBA2RGB);
+
     Mat colors(3 * 3 * 6, 4, CV_32F);
 
     for (int i = 0; i < 2; i++) {
         Mat &faces = i == 0 ? faces1 : faces2;
         for (int y = 0; y < 9; y++) {
             for (int x = 0; x < 3; x++) {
-                Vec4b color = faces.at<Vec4b>(y, x);
-                for (int j = 0; j < 4; j++) {
+                Vec3b color = faces.at<Vec3b>(y, x);
+                for (int j = 0; j < 3; j++) {
                     colors.at<float>((i * 9 + y) * 3 + x, j) = (float)color[j];
                 }
             }
@@ -264,6 +268,37 @@ Java_edu_wpi_hexahedron_MainActivity_clusterColors(
     Mat centerColors;
     Mat labels;
     kmeans(colors, 6, labels, TermCriteria(CV_TERMCRIT_ITER | CV_TERMCRIT_EPS, 100, 1), 10, KMEANS_PP_CENTERS, centerColors);
+
+    Mat_<int> costs(3 * 3 * 6, 3 * 3 * 6);
+    for (int row = 0; row < costs.rows; row++) {
+        for (int col = 0; col < costs.cols; col++) {
+            Vec3f measuredColor(
+                    colors.at<float>(row, 0),
+                    colors.at<float>(row, 1),
+                    colors.at<float>(row, 2)
+            );
+            Vec3f centerColor(
+                    centerColors.at<float>(col / 9, 0),
+                    centerColors.at<float>(col / 9, 1),
+                    centerColors.at<float>(col / 9, 2)
+            );
+            double dist = norm(measuredColor, centerColor);
+            costs(row, col) = (int)(dist * 1000) / 1000;
+        }
+    }
+
+    Munkres m;
+    m.diag(false);
+    m.solve(costs);
+
+    for (int i = 0; i < costs.rows; i++) {
+        for (int j = 0; j < costs.cols; j++) {
+            if (0 == costs(i, j)) {
+                labels.at<int>(i) = j / 9;
+                break;
+            }
+        }
+    }
 
     int d = labels.at<int>(4);
     int l = labels.at<int>(13);

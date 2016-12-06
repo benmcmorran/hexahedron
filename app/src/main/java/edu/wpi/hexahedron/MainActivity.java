@@ -90,7 +90,7 @@ public class MainActivity extends Activity implements CameraBridgeViewBase.CvCam
                 String config = clusterColors(faces1.getNativeObjAddr(), faces2.getNativeObjAddr());
                 String result = solveCube(config);
                 Intent intent = new Intent(this, ResultActivity.class);
-                intent.putExtra("solve", result);
+                intent.putExtra("solve", config + "\n" + result);
                 startActivity(intent);
                 currentCapture++;
                 break;
