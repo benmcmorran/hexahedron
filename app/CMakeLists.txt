@@ -18,7 +18,9 @@ add_library( # Sets the name of the library.
              # Provides a relative path to your source file(s).
              # Associated headers in the same location as their source
              # file are automatically included.
-             src/main/cpp/native-lib.cpp )
+             src/main/cpp/native-lib.cpp
+             src/main/cpp/munkres.cpp
+             src/main/cpp/munkres.h )
 
 set( OpenCV_DIR /home/gardamerinos/OpenCV-android-sdk/sdk/native/jni )
 find_package( OpenCV REQUIRED )

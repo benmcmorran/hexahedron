@@ -4,6 +4,7 @@
 #include <opencv2/core/core.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <vector>
+#include "munkres.h"
 
 using namespace std;
 using namespace cv;
@@ -114,7 +115,7 @@ private:
 };
 
 //function to identify if points belong to the same cluster
-vector<Point> findCentralPoints(vector<Vec4i> lines, Point center, int threshold, Mat preview) {
+vector<Point> findCentralPoints(vector<Vec4i> lines, Point center, int threshold, Mat *preview) {
     vector<Point> endpoints;
     for (Vec4i l : lines) {
         endpoints.push_back(Point(l[0], l[1]));
@@ -124,17 +125,19 @@ vector<Point> findCentralPoints(vector<Vec4i> lines, Point center, int threshold
     vector<int> labels;
     partition(endpoints, labels, DistanceTest(threshold));
 
-    int maxCols = 6;
-    Scalar cols[] = {
-            Scalar(255, 0, 0),
-            Scalar(255, 255, 0),
-            Scalar(0, 255, 0),
-            Scalar(0, 255, 255),
-            Scalar(0, 0, 255),
-            Scalar(255, 0, 255)
-    };
-    for (int i = 0; i < endpoints.size(); i++) {
-        circle(preview, endpoints[i], 5, cols[labels[i] % maxCols], -1, 8, 0);
+    if (nullptr != preview) {
+        int maxCols = 6;
+        Scalar cols[] = {
+                Scalar(255, 0, 0),
+                Scalar(255, 255, 0),
+                Scalar(0, 255, 0),
+                Scalar(0, 255, 255),
+                Scalar(0, 0, 255),
+                Scalar(255, 0, 255)
+        };
+        for (int i = 0; i < endpoints.size(); i++) {
+            circle(*preview, endpoints[i], 5, cols[labels[i] % maxCols], -1, 8, 0);
+        }
     }
 
     int labelCount = *max_element(labels.begin(), labels.end()) + 1;
@@ -169,12 +172,16 @@ Java_edu_wpi_hexahedron_MainActivity_stringFromJNI(
 
 void
 Java_edu_wpi_hexahedron_MainActivity_findCube(
-        JNIEnv*,
+        JNIEnv *,
         jobject,
-        jlong input
+        jlong input,
+        jlong facesAddr
 ) {
-    Mat& raw = *(Mat*)input; // read image
+    Mat &raw = *(Mat *) input; // read image
     Point center(raw.cols / 2, raw.rows / 2); //Cube is close to the center
+    bool debug = false;
+
+    Mat &faces = *(Mat *) facesAddr;
 
     Mat edges;
     cvtColor(raw, edges, CV_RGBA2GRAY);
@@ -184,7 +191,7 @@ Java_edu_wpi_hexahedron_MainActivity_findCube(
     vector<Vec4i> lines;
     HoughLinesP(edges, lines, 1, CV_PI / 180, 50, 30, 10); //find lines
     if (lines.size() == 0) return;
-    vector<Point> cubePoints = findCentralPoints(lines, center, 100, raw); //???
+    vector<Point> cubePoints = findCentralPoints(lines, center, 100, &raw); //???
 
     vector<Point> hullPoints, approx; //create vector of points
     if (cubePoints.size() == 0) return; //if nothing detected, break
@@ -195,13 +202,177 @@ Java_edu_wpi_hexahedron_MainActivity_findCube(
 
     for (int i = 0; i < 6; i++) {
         line(raw, hex[i], hex[(i + 1) % 6], Scalar(0, 0, 255), 2, LINE_AA);//draw the cube
-    }
+        if (debug) {
+            for (int i = 0; i < 6; i++) {
+                line(raw, hex[i], hex[(i + 1) % 6], Scalar(0, 0, 255), 2, LINE_AA);
+            }
+        }
 
-    bool areCornersOdd;
-    Point centf = findCenter(hex, areCornersOdd);
-    for (int i = areCornersOdd ? 1 : 0; i < 6; i += 2) {
-        line(raw, hex[i], centf, Scalar(0, 255, 0), 2, LINE_AA);
+        bool areCornersOdd;
+        Point centf = findCenter(hex, areCornersOdd);
+
+        if (debug) {
+            for (int i = areCornersOdd ? 1 : 0; i < 6; i += 2) {
+                line(raw, hex[i], centf, Scalar(0, 255, 0), 2, LINE_AA);
+            }
+        }
+
+        int topIndex = min_element(hex.begin(), hex.end(), [](Point a, Point b) -> bool {
+            return a.y < b.y;
+        }) - hex.begin();
+
+        int size = 128;
+        for (int i = 0; i < 6; i += 2) {
+            int offset = topIndex;
+            Point2f src[3][4] = {
+                    {hex[offset],           hex[(offset + 1) % 6], centf,  hex[(offset +
+                                                                                5) %
+                                                                               6]},
+                    {hex[(offset + 5) % 6], centf,                 hex[(offset + 3) %
+                                                                       6], hex[(offset +
+                                                                                4) %
+                                                                               6]},
+                    {centf,                 hex[(offset + 1) % 6], hex[(offset + 2) %
+                                                                       6], hex[(offset +
+                                                                                3) %
+                                                                               6]}
+            };
+            Point2f dst[] = {Point(0, 0), Point(size, 0), Point(size, size), Point(0, size)};
+            Mat m = getPerspectiveTransform(src[i / 2], dst);
+
+            Mat face;
+            warpPerspective(raw, face, m, Size(size, size));
+
+            for (int x = 0; x < 3; x++) {
+                for (int y = 0; y < 3; y++) {
+                    Rect roi(x * size / 3 + size / 9, y * size / 3 + size / 9, size / 9, size / 9);
+                    Mat cell = face(roi);
+
+                    Scalar color = mean(cell);
+
+                    faces.at<Vec4b>(3 * (i / 2) + y, x) = Vec4b(color[0], color[1], color[2],
+                                                                color[3]);
+                }
+            }
+
+//        face.copyTo(raw(Rect(i * size / 2, 0, size, size)));
+        }
+
+        Mat bigFaces;
+        resize(faces, bigFaces, Size(), 50.0, 50.0, INTER_NEAREST);
+        bigFaces.copyTo(raw(Rect(0, 0, bigFaces.cols, bigFaces.rows)));
     }
 }
 
+jstring Java_edu_wpi_hexahedron_MainActivity_clusterColors(
+        JNIEnv *env,
+        jobject,
+        jlong faces1Addr,
+        jlong faces2Addr
+    ) {
+        Mat &faces1 = *(Mat *) faces1Addr;
+        Mat &faces2 = *(Mat *) faces2Addr;
+
+        cvtColor(faces1, faces1, CV_RGBA2RGB);
+        cvtColor(faces2, faces2, CV_RGBA2RGB);
+
+        Mat colors(3 * 3 * 6, 4, CV_32F);
+
+        for (int i = 0; i < 2; i++) {
+            Mat &faces = i == 0 ? faces1 : faces2;
+            for (int y = 0; y < 9; y++) {
+                for (int x = 0; x < 3; x++) {
+                    Vec3b color = faces.at<Vec3b>(y, x);
+                    for (int j = 0; j < 3; j++) {
+                        colors.at<float>((i * 9 + y) * 3 + x, j) = (float) color[j];
+                    }
+                }
+            }
+        }
+
+        Mat centerColors;
+        Mat labels;
+        kmeans(colors, 6, labels, TermCriteria(CV_TERMCRIT_ITER | CV_TERMCRIT_EPS, 100, 1), 10,
+               KMEANS_PP_CENTERS, centerColors);
+
+        Mat_<int> costs(3 * 3 * 6, 3 * 3 * 6);
+        for (int row = 0; row < costs.rows; row++) {
+            for (int col = 0; col < costs.cols; col++) {
+                Vec3f measuredColor(
+                        colors.at<float>(row, 0),
+                        colors.at<float>(row, 1),
+                        colors.at<float>(row, 2)
+                );
+                Vec3f centerColor(
+                        centerColors.at<float>(col / 9, 0),
+                        centerColors.at<float>(col / 9, 1),
+                        centerColors.at<float>(col / 9, 2)
+                );
+                double dist = norm(measuredColor, centerColor);
+                costs(row, col) = (int) (dist * 1000) / 1000;
+            }
+        }
+
+        Munkres m;
+        m.diag(false);
+        m.solve(costs);
+
+        for (int i = 0; i < costs.rows; i++) {
+            for (int j = 0; j < costs.cols; j++) {
+                if (0 == costs(i, j)) {
+                    labels.at<int>(i) = j / 9;
+                    break;
+                }
+            }
+        }
+
+        int d = labels.at<int>(4);
+        int l = labels.at<int>(13);
+        int b = labels.at<int>(22);
+
+        int u = labels.at<int>(31);
+        int f = labels.at<int>(40);
+        int r = labels.at<int>(49);
+
+        // Order is URFDLB
+        int order[] = {
+                27, 28, 29,
+                30, 31, 32,
+                33, 34, 35,
+
+                45, 46, 47,
+                48, 49, 50,
+                51, 52, 53,
+
+                36, 37, 38,
+                39, 40, 41,
+                42, 43, 44,
+
+                6, 3, 0,
+                7, 4, 1,
+                8, 5, 2,
+
+                17, 16, 15,
+                14, 13, 12,
+                11, 10, 9,
+
+                26, 25, 24,
+                23, 22, 21,
+                20, 19, 18
+        };
+
+        char msg[60] = {0};
+        for (int i = 0; i < 54; i++) {
+            char face = ' ';
+            int label = labels.at<int>(order[i]);
+            if (u == label) face = 'U';
+            else if (r == label) face = 'R';
+            else if (f == label) face = 'F';
+            else if (d == label) face = 'D';
+            else if (l == label) face = 'L';
+            else if (b == label) face = 'B';
+            msg[i] = face;
+        }
+        return env->NewStringUTF(msg);
+    }
 }
