@@ -89,10 +89,6 @@ public class MainActivity extends Activity implements CameraBridgeViewBase.CvCam
             case 3:
                 String config = clusterColors(faces1.getNativeObjAddr(), faces2.getNativeObjAddr());
                 String result = solveCube(config);
-                if(result.contains("Error")){
-                    currentCapture = 1;
-                    break;
-                }
                 String[] moves = result.split("\\s+");
                 Intent intent = new Intent(this, ResultActivity.class);
                 String output = "";

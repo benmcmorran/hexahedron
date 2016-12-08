@@ -3,6 +3,7 @@ package edu.wpi.hexahedron;
 import android.content.Intent;
 import android.os.Bundle;
 import android.app.Activity;
+import android.text.method.ScrollingMovementMethod;
 import android.widget.TextView;
 
 public class ResultActivity extends Activity {
@@ -16,6 +17,7 @@ public class ResultActivity extends Activity {
         TextView view = (TextView) findViewById(R.id.result);
         Intent intent = getIntent();
         view.setText(intent.getExtras().getString("solve"));
+        view.setMovementMethod(new ScrollingMovementMethod());
     }
 
 }

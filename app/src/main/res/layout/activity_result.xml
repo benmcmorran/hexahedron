@@ -16,6 +16,8 @@
         android:paddingLeft="@dimen/activity_horizontal_margin"
         android:paddingRight="@dimen/activity_horizontal_margin"
         android:paddingTop="@dimen/activity_vertical_margin"
+        android:maxLines = "25"
+        android:scrollbars = "vertical"
         android:text="Hello world" />
 
 </RelativeLayout>
