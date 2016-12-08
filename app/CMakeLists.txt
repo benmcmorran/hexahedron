@@ -20,7 +20,7 @@ add_library( # Sets the name of the library.
              # file are automatically included.
              src/main/cpp/native-lib.cpp )
 
-set( OpenCV_DIR /dev/lib/OpenCV-android-sdk/sdk/native/jni )
+set( OpenCV_DIR /home/gardamerinos/OpenCV-android-sdk/sdk/native/jni )
 find_package( OpenCV REQUIRED )
 
 # Searches for a specified prebuilt library and stores the path as a

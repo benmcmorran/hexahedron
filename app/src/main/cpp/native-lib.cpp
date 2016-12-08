@@ -1,5 +1,6 @@
 #include <jni.h>
 #include <string>
+#include <math.h>
 #include <opencv2/core/core.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <vector>
@@ -21,6 +22,7 @@ bool intersection(Point2f o1, Point2f p1, Point2f o2, Point2f p2, Point2f &r) {
     return true;
 }
 
+//
 vector<Point> simplify(vector<Point> shape, int n) {
     vector<pair<Point, Point>> segments(shape.size());
     for (int i = 0; i < shape.size(); i++) {
@@ -52,14 +54,14 @@ Point findCenter(vector<Point> hexagon, bool &areCornersOdd) {
     Point2f center;
 
     for (int i = 0; i < 3; i++) {
-        Point2f o1 = hexagon[i],
-                p1 = hexagon[(i + 1) % 6],
+        Point2f o1 = hexagon[i], //point 1, line 1
+                p1 = hexagon[(i + 1) % 6], //point2 line 1
                 corner1 = hexagon[(i + 2) % 6],
                 o2 = hexagon[(i + 3) % 6],
                 p2 = hexagon[(i + 4) % 6],
                 corner2 = hexagon[(i + 5) % 6];
 
-        Point2f intr;
+        Point2f intr;//vanishing point
         intersection(o1, p1, o2, p2, intr);
 
         Point2f corner;
@@ -75,15 +77,26 @@ Point findCenter(vector<Point> hexagon, bool &areCornersOdd) {
         corners.push_back(corner);
     }
 
+    vector<Point2f> centers;
     for (int i = 0; i < 3; i++) {
         int next = (i + 1) % 3;
 
         Point2f centerGuess;
         intersection(vanish[i], corners[i], vanish[next], corners[next], centerGuess);
-        center += centerGuess;
+        centers.push_back(centerGuess);
+        center += centerGuess;// store this, do magic
     }
 
-    return center / 3;
+    float threshold = 3;//No idea what this value should be
+    float dist1 = sqrt(pow(centers[0].x-centers[1].x,2) + pow(centers[0].y-centers[1].y,2));
+    float dist2 = sqrt(pow(centers[1].x-centers[2].x,2) + pow(centers[1].y-centers[2].y,2));
+    float dist3 = sqrt(pow(centers[2].x-centers[0].x,2) + pow(centers[2].y-centers[0].y,2));
+
+    if (dist1<threshold && dist2<threshold && dist3<threshold){
+        return center / 3;
+    }
+
+    return center / 3;//maybe a point with 0,0?
 }
 
 class DistanceTest {
@@ -100,6 +113,7 @@ private:
     float threshold;
 };
 
+//function to identify if points belong to the same cluster
 vector<Point> findCentralPoints(vector<Vec4i> lines, Point center, int threshold, Mat preview) {
     vector<Point> endpoints;
     for (Vec4i l : lines) {
@@ -159,28 +173,28 @@ Java_edu_wpi_hexahedron_MainActivity_findCube(
         jobject,
         jlong input
 ) {
-    Mat& raw = *(Mat*)input;
-    Point center(raw.cols / 2, raw.rows / 2);
+    Mat& raw = *(Mat*)input; // read image
+    Point center(raw.cols / 2, raw.rows / 2); //Cube is close to the center
 
     Mat edges;
     cvtColor(raw, edges, CV_RGBA2GRAY);
     GaussianBlur(edges, edges, Size(), 1);
-    Canny(edges, edges, 100, 200);
+    Canny(edges, edges, 100, 200); //find edges
 
     vector<Vec4i> lines;
-    HoughLinesP(edges, lines, 1, CV_PI / 180, 50, 30, 10);
+    HoughLinesP(edges, lines, 1, CV_PI / 180, 50, 30, 10); //find lines
     if (lines.size() == 0) return;
-    vector<Point> cubePoints = findCentralPoints(lines, center, 100, raw);
+    vector<Point> cubePoints = findCentralPoints(lines, center, 100, raw); //???
 
-    vector<Point> hullPoints, approx;
-    if (cubePoints.size() == 0) return;
-    convexHull(cubePoints, hullPoints);
-    approxPolyDP(hullPoints, approx, 5, true);
-    if (approx.size() < 6) return;
-    vector<Point> hex = simplify(approx, 6);
+    vector<Point> hullPoints, approx; //create vector of points
+    if (cubePoints.size() == 0) return; //if nothing detected, break
+    convexHull(cubePoints, hullPoints); //circle the object with a convex shape
+    approxPolyDP(hullPoints, approx, 5, true); //approximate the polygon
+    if (approx.size() < 6) return; // if sides are less than 6 break
+    vector<Point> hex = simplify(approx, 6); //??
 
     for (int i = 0; i < 6; i++) {
-        line(raw, hex[i], hex[(i + 1) % 6], Scalar(0, 0, 255), 2, LINE_AA);
+        line(raw, hex[i], hex[(i + 1) % 6], Scalar(0, 0, 255), 2, LINE_AA);//draw the cube
     }
 
     bool areCornersOdd;
