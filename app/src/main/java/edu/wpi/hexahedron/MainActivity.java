@@ -89,8 +89,26 @@ public class MainActivity extends Activity implements CameraBridgeViewBase.CvCam
             case 3:
                 String config = clusterColors(faces1.getNativeObjAddr(), faces2.getNativeObjAddr());
                 String result = solveCube(config);
+                if(result.contains("Error")){
+                    currentCapture = 1;
+                    break;
+                }
+                String[] moves = result.split("\\s+");
                 Intent intent = new Intent(this, ResultActivity.class);
-                intent.putExtra("solve", config + "\n" + result);
+                String output = "";
+                Integer counter = 1;
+                for (String s: moves){
+                    if (s.contains("'") || s.contains("2")){
+                        s = s.replace("'"," CCW 90 degrees");
+                        s = s.replace("2"," 180 degrees");
+                    }else {
+                        s = s.concat(" CW 90 degrees");
+                    }
+                    s = String.valueOf(counter) + ". "+ s;
+                    output = output + "\n" + s;
+                    counter++;
+                }
+                intent.putExtra("solve", output);
                 startActivity(intent);
                 currentCapture++;
                 break;

@@ -191,7 +191,7 @@ Java_edu_wpi_hexahedron_MainActivity_findCube(
     vector<Vec4i> lines;
     HoughLinesP(edges, lines, 1, CV_PI / 180, 50, 30, 10); //find lines
     if (lines.size() == 0) return;
-    vector<Point> cubePoints = findCentralPoints(lines, center, 100, &raw); //???
+    vector<Point> cubePoints = findCentralPoints(lines, center, 100, debug ? &raw : nullptr); //???
 
     vector<Point> hullPoints, approx; //create vector of points
     if (cubePoints.size() == 0) return; //if nothing detected, break
@@ -276,7 +276,7 @@ jstring Java_edu_wpi_hexahedron_MainActivity_clusterColors(
         cvtColor(faces1, faces1, CV_RGBA2RGB);
         cvtColor(faces2, faces2, CV_RGBA2RGB);
 
-        Mat colors(3 * 3 * 6, 4, CV_32F);
+        Mat colors(3 * 3 * 6, 3, CV_32F);
 
         for (int i = 0; i < 2; i++) {
             Mat &faces = i == 0 ? faces1 : faces2;

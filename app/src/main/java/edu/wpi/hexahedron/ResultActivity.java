@@ -11,6 +11,7 @@ public class ResultActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_result);
+        setTitle("Steps to solve your Rubik's Cube");
 
         TextView view = (TextView) findViewById(R.id.result);
         Intent intent = getIntent();
