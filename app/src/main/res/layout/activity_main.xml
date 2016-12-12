@@ -12,10 +12,26 @@
         android:id="@+id/preview"
         opencv:show_fps="true"
         opencv:camera_id="back" />
+
     <Button
         android:layout_width="200dp"
         android:layout_height="100dp"
         android:layout_gravity="bottom"
         android:text="Next"
         android:id="@+id/next" />
+
+    <ProgressBar
+        style="@android:style/Widget.DeviceDefault.Light.ProgressBar.Horizontal"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:id="@+id/progress" />
+
+    <ImageView
+        android:src="@android:color/white"
+        android:id="@+id/flash"
+        android:adjustViewBounds="false"
+        android:cropToPadding="false"
+        android:layout_height="0dp"
+        android:layout_width="0dp" />
 </FrameLayout>

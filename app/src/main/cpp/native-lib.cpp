@@ -175,7 +175,9 @@ Java_edu_wpi_hexahedron_MainActivity_findCube(
         JNIEnv *,
         jobject,
         jlong input,
-        jlong facesAddr
+        jlong facesAddr,
+        jint height,
+        jint width
 ) {
     Mat &raw = *(Mat *) input; // read image
     Point center(raw.cols / 2, raw.rows / 2); //Cube is close to the center
@@ -186,6 +188,7 @@ Java_edu_wpi_hexahedron_MainActivity_findCube(
     Mat edges;
     cvtColor(raw, edges, CV_RGBA2GRAY);
     GaussianBlur(edges, edges, Size(), 1);
+
     Canny(edges, edges, 100, 200); //find edges
 
     vector<Vec4i> lines;
@@ -296,6 +299,7 @@ jstring Java_edu_wpi_hexahedron_MainActivity_clusterColors(
                KMEANS_PP_CENTERS, centerColors);
 
         Mat_<int> costs(3 * 3 * 6, 3 * 3 * 6);
+        Mat_<int> costs2(3 * 3 * 6, 3 * 3 * 6);
         for (int row = 0; row < costs.rows; row++) {
             for (int col = 0; col < costs.cols; col++) {
                 Vec3f measuredColor(
@@ -309,19 +313,39 @@ jstring Java_edu_wpi_hexahedron_MainActivity_clusterColors(
                         centerColors.at<float>(col / 9, 2)
                 );
                 double dist = norm(measuredColor, centerColor);
-                costs(row, col) = (int) (dist * 1000) / 1000;
+                costs(row, col) = (int) (dist * 1000);
+                costs2(row, col) = (int) (dist * 1000);
+            }
+        }
+
+        for (int col = 0; col < costs2.cols; col++) {
+            int min = costs(0,col);
+            for(int row = 0; row < costs2.rows; row++) {
+                if (costs2(row, col) < min) {
+                    min = costs(row, col);
+                }
+            }
+            for (int row = 0; row < costs2.rows; row++) {
+                costs2(row, col) = (costs2(row, col) * 100) / min;
             }
         }
 
         Munkres m;
         m.diag(false);
         m.solve(costs);
+        m.solve(costs2);
+
+        Mat labels2 = labels.clone();
+
+
 
         for (int i = 0; i < costs.rows; i++) {
             for (int j = 0; j < costs.cols; j++) {
                 if (0 == costs(i, j)) {
                     labels.at<int>(i) = j / 9;
-                    break;
+                }
+                if (0 == costs2(i, j)) {
+                    labels2.at<int>(i) = j / 9;
                 }
             }
         }
@@ -333,6 +357,14 @@ jstring Java_edu_wpi_hexahedron_MainActivity_clusterColors(
         int u = labels.at<int>(31);
         int f = labels.at<int>(40);
         int r = labels.at<int>(49);
+
+        int d2 = labels2.at<int>(4);
+        int l2 = labels2.at<int>(13);
+        int b2 = labels2.at<int>(22);
+
+        int u2 = labels2.at<int>(31);
+        int f2 = labels2.at<int>(40);
+        int r2 = labels2.at<int>(49);
 
         // Order is URFDLB
         int order[] = {
@@ -361,7 +393,7 @@ jstring Java_edu_wpi_hexahedron_MainActivity_clusterColors(
                 20, 19, 18
         };
 
-        char msg[60] = {0};
+        char msg[110] = {0};
         for (int i = 0; i < 54; i++) {
             char face = ' ';
             int label = labels.at<int>(order[i]);
@@ -372,6 +404,17 @@ jstring Java_edu_wpi_hexahedron_MainActivity_clusterColors(
             else if (l == label) face = 'L';
             else if (b == label) face = 'B';
             msg[i] = face;
+        }
+        for (int i = 0; i < 54; i++) {
+            char face = ' ';
+            int label = labels2.at<int>(order[i]);
+            if (u2 == label) face = 'U';
+            else if (r2 == label) face = 'R';
+            else if (f2 == label) face = 'F';
+            else if (d2 == label) face = 'D';
+            else if (l2 == label) face = 'L';
+            else if (b2 == label) face = 'B';
+            msg[i+54] = face;
         }
         return env->NewStringUTF(msg);
     }

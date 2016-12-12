@@ -22,7 +22,7 @@ add_library( # Sets the name of the library.
              src/main/cpp/munkres.cpp
              src/main/cpp/munkres.h )
 
-set( OpenCV_DIR /home/gardamerinos/OpenCV-android-sdk/sdk/native/jni )
+set( OpenCV_DIR "A:/School 2016/OpenCV-android-sdk/sdk/native/jni" )
 find_package( OpenCV REQUIRED )
 
 # Searches for a specified prebuilt library and stores the path as a
